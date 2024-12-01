@@ -1,0 +1,117 @@
+#include <Adafruit_NeoPixel.h>
+#include <RGBLed.h>
+
+const int lamp = 6;
+const int NUM_LEDS = 15;
+const int trigPin = 9;
+const int echoPin = 10;
+const int trig2 = 12;
+const int echo2 = 11;
+const int minDistance = 25;
+const int maxDistance = 50;
+const int secondDistance = 10;
+const int changeTime = 4;
+const int szinek[5][3] = {{255, 255, 255}, {255, 255, 255}, {255, 0, 0}, {0, 255, 0}, {0, 0, 255}};
+int color = 0;
+int power;
+long duration;
+int distance;
+int distance2;
+long startTime;
+long lastTime;
+long secondTime;
+bool on;
+bool hit;
+
+Adafruit_NeoPixel strip(NUM_LEDS, lamp, NEO_GRB + NEO_KHZ800);
+
+void setup() {
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+  pinMode(trig2, OUTPUT);
+  pinMode(echo2, INPUT);
+
+  strip.begin();
+  strip.show();
+  strip.setBrightness(255);
+
+  hit = false;
+  startTime = 0;
+  lastTime = 0;
+  power = 0;
+}
+
+void loop() {
+  //measure distance
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  duration = pulseIn(echoPin, HIGH);
+
+  distance = duration * 0.034 / 2;
+  //end od distance 1
+  digitalWrite(trig2, LOW);
+  delayMicroseconds(2);
+
+  digitalWrite(trig2, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trig2, LOW);
+
+  duration = pulseIn(echo2, HIGH);
+
+  distance2 = duration * 0.034 / 2;
+  //end distance measurement
+
+  //use logic to decide current state
+  if(hit && distance > maxDistance){
+    hit = false;
+    if (startTime + 1000 > millis()){
+      if(power > 0){
+        power = 0;
+      }
+      else{
+        power = 64;
+      }
+    }
+    if (power > 0){
+      on = true;
+    }
+    else {
+      on = false;
+    }
+  }
+  if(!hit && distance <= minDistance){
+    hit = true;
+    startTime = millis();
+    lastTime = millis() + 1000;
+  }
+
+  //Has a 1 sec wait time, then runs through the power options in 4 seconds
+  if(hit && distance < maxDistance && lastTime < millis()){
+    if(on){
+      power = power - (255 * (millis() - lastTime) / (changeTime * 1000));
+    }
+    else{
+      power = power + (255 * (millis() - lastTime) / (changeTime * 1000));
+    }
+    power = min(255, max(0, power));
+    lastTime = millis();
+  }
+
+  if(distance2 < secondDistance && secondTime + 1000 < millis()){
+    color = (color + 1) % 5;
+    secondTime = millis();
+  }
+
+  //Write on lamp
+  for(int i = 0; i < NUM_LEDS; i++){
+    strip.setPixelColor(i, strip.Color(power*szinek[color][0]/255, power*szinek[color][1]/255, power*szinek[color][2]/255));
+  }
+  strip.show();
+
+  delay(10);
+}
